@@ -1,0 +1,13 @@
+FROM alpine:3.18
+
+RUN apk add --no-cache \
+    nodejs \
+    python3 \
+    openjdk11 \
+    g++ \
+    make
+
+# Create a non-root user (important for security testing if we want to run as nobody, though we run as root inside if not specified, 
+# but the worker drops caps. Actually alpine already has a 'nobody' user)
+
+WORKDIR /workspace
