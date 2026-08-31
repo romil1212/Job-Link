@@ -10,52 +10,61 @@ const Register = () => {
     confirmPassword: '',
   });
 
-  const [otpStep, setOtpStep] = useState(false);
+  const [step, setStep] = useState('FORM'); // 'FORM' | 'OTP'
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Step A: Send OTP to candidate's email
+  // 1. Submit Form & Request OTP
   const handleRequestOtp = async (e) => {
     e.preventDefault();
     setError('');
-    setInfo('');
 
     if (formData.password !== formData.confirmPassword) {
       return setError('Passwords do not match');
+    }
+    if (formData.password.length < 6) {
+      return setError('Password must be at least 6 characters');
     }
 
     setLoading(true);
     try {
       await API.post('/auth/send-otp', { email: formData.email });
-      setOtpStep(true);
-      setInfo(`A 6-digit code has been sent to ${formData.email}`);
+      setStep('OTP');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP');
+      setError(err.response?.data?.message || 'Failed to send OTP code');
     } finally {
       setLoading(false);
     }
   };
 
-  // Step B: Verify OTP & complete registration
-  const handleVerifyAndRegister = async (e) => {
+  // 2. Submit OTP, Verify & Redirect to Dashboard
+  const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (otp.length !== 6) {
+      return setError('Please enter a complete 6-digit OTP');
+    }
+
     setLoading(true);
-
     try {
-      // 1. Check OTP
-      await API.post('/auth/verify-otp', { email: formData.email, otp });
+      const res = await API.post('/auth/verify-register', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        otp,
+      });
 
-      // 2. Finalize Account Creation
-      const res = await API.post('/auth/register', formData);
+      // Save token and user info
       localStorage.setItem('token', res.data.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.data.user));
+
+      // Redirect immediately to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Verification failed');
+      setError(err.response?.data?.message || 'Invalid or expired OTP code');
     } finally {
       setLoading(false);
     }
@@ -63,20 +72,20 @@ const Register = () => {
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg bg-[#111827]/90 rounded-3xl p-8 sm:p-10 border border-slate-800 shadow-2xl relative overflow-hidden backdrop-blur-lg">
+      <div className="w-full max-w-md bg-[#111827]/90 rounded-3xl p-8 sm:p-10 border border-slate-800 shadow-2xl backdrop-blur-lg">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-500/25">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {otpStep ? 'Verify Code' : 'Create Account'}
+            {step === 'FORM' ? 'Create Account' : 'Verify Email'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            {otpStep
-              ? 'Enter the 6-digit confirmation code sent to your email'
-              : 'Register to start verifying resumes with automated scoring'}
+            {step === 'FORM'
+              ? 'Register to start verifying candidate resumes'
+              : `Enter the 6-digit code sent to ${formData.email}`}
           </p>
         </div>
 
@@ -86,20 +95,14 @@ const Register = () => {
           </div>
         )}
 
-        {info && (
-          <div className="mb-6 p-3.5 bg-sky-500/10 border border-sky-500/30 text-sky-300 text-xs sm:text-sm rounded-xl">
-            {info}
-          </div>
-        )}
-
-        {!otpStep ? (
+        {step === 'FORM' ? (
           <form onSubmit={handleRequestOtp} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Full Name</label>
               <input
                 type="text"
                 required
-                placeholder="Romil Thummar"
+                placeholder="Pritesh"
                 className="w-full px-4 py-2.5 bg-[#1a2333] border border-slate-700/80 rounded-xl text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -111,7 +114,7 @@ const Register = () => {
               <input
                 type="email"
                 required
-                placeholder="name@example.com"
+                placeholder="name@gmail.com"
                 className="w-full px-4 py-2.5 bg-[#1a2333] border border-slate-700/80 rounded-xl text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -153,17 +156,20 @@ const Register = () => {
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyAndRegister} className="space-y-4">
+          <form onSubmit={handleVerifyOtp} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Enter 6-Digit OTP</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 text-center">
+                6-Digit Verification Code
+              </label>
               <input
                 type="text"
                 required
                 maxLength="6"
                 placeholder="123456"
-                className="w-full tracking-widest text-center text-xl font-bold py-3 bg-[#1a2333] border border-slate-700/80 rounded-xl text-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                autoFocus
+                className="w-full tracking-widest text-center text-3xl font-extrabold py-3 bg-[#1a2333] border border-slate-700/80 rounded-xl text-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
               />
             </div>
 
@@ -172,16 +178,25 @@ const Register = () => {
               disabled={loading}
               className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg transition"
             >
-              {loading ? 'Verifying...' : 'Verify Code & Register'}
+              {loading ? 'Verifying...' : 'Verify OTP & Enter Dashboard'}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setOtpStep(false)}
-              className="w-full py-2 text-xs text-slate-400 hover:text-white transition"
-            >
-              &larr; Change Email or Details
-            </button>
+            <div className="flex justify-between items-center text-xs pt-2">
+              <button
+                type="button"
+                onClick={() => setStep('FORM')}
+                className="text-slate-400 hover:text-white"
+              >
+                &larr; Back to edit details
+              </button>
+              <button
+                type="button"
+                onClick={handleRequestOtp}
+                className="text-sky-400 hover:underline"
+              >
+                Resend OTP
+              </button>
+            </div>
           </form>
         )}
 

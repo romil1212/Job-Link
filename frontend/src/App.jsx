@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import UploadResume from './pages/UploadResume';
 import ResumeDetails from './pages/ResumeDetails';
 import ProtectedRoute from './components/ProtectedRoute';
+import VerifyEmail from './pages/VerifyEmail';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           {/* Protected Routes */}
           <Route
